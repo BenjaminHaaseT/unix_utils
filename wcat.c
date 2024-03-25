@@ -13,23 +13,26 @@
 int print_file(char *fname);
 
 /*
- * Reads a single line of variable length from the stream `fp` into `buf`, and returns an integer
- * representing the number of characters read. If the function returns 0, it may be that all lines have been read
- * or that the end of the file has been reached
+ * Reads a single line of variable length from the stream `fp` and returns a string.
+ * If execution is unsuccessful for any reason, the function will return NULL, otherwise it will return the
+ * current line of the file as a char*.
  */
-int read_line(FILE *fp, char *buf, size_t *buf_size);
+char *read_line(FILE *fp);
 
 int main(int argc, char **argv)
 {
+    printf("%d\n", argc);
     if (argc > 1)
     {
         int i = 1;
         while (i < argc)
         {
+            printf("FILE: %s\n", argv[i]);
             if (print_file(argv[i++]))
             {
                 exit(1);
             }
+            printf("\n\n");
         }
     }
 
@@ -41,79 +44,79 @@ int print_file(char *fname)
     FILE *fp = fopen(fname, "r");
     if (!fp)
     {
-        printf("error reading file\n");
+        fprintf(stderr, "error reading file: %s\n", fname);
         return 1;
     }
 
-    size_t buf_size = 32;
-    char *buf = malloc(buf_size);
-
-    while (read_line(fp, buf, &buf_size) > 0)
+    char *line = NULL;
+    while ((line = read_line(fp)))
     {
-        printf("%s", buf);
-
-        buf_size = 32;
-        char *next_buf = realloc(buf, buf_size);
-        if (next_buf)
-        {
-            memset(next_buf, 0, 32);
-            buf = next_buf;
-        }
-        else
-        {
-            printf("error reallocating buffer\n");
-            return 1;
-        }
+        printf("%s", line);
+        free(line);
     }
-
-    free(buf);
 
     if (ferror(fp))
+    {
+        clearerr(fp);
+        fclose(fp);
         return 1;
+    }
 
+    fclose(fp);
     return 0;
 }
 
-int read_line(FILE *fp, char *buf, size_t *buf_size)
+char *read_line(FILE *fp)
 {
+    size_t buf_size = 32;
+    char *buf = malloc(buf_size);
     size_t i = 0;
     int cur_char;
 
     while ((cur_char = fgetc(fp)) != EOF)
     {
-        // Check that we have enough space in buffer
-        if (i == *buf_size)
+        if (i == buf_size)
         {
-            *buf_size *= 2;
-            char *new_buf = realloc(buf, *buf_size);
+            buf_size *= 2;
+            char *new_buf = realloc(buf, buf_size);
             if (new_buf)
-            {
                 buf = new_buf;
-            }
             else
             {
-                printf("error reallocating buffer\n");
-                return 0;
+                fprintf(stderr, "[%s:%s:%d] error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
+                return NULL;
             }
         }
+
         buf[i++] = (char) cur_char;
         if (cur_char == '\n')
             break;
     }
 
-    if (i == *buf_size)
+    if (ferror(fp) || (cur_char != '\n' && !feof(fp)))
     {
-        *buf_size *= 2;
+        fprintf(stderr, "[%s:%s:%d] error reading from file\n", __FILE__, __FUNCTION__, __LINE__);
+        return NULL;
+    }
+
+    if (!i)
+    {
+        free(buf);
+        return NULL;
+    }
+
+    if (i == buf_size)
+    {
         char *new_buf = realloc(buf, i + 1);
         if (new_buf)
             buf = new_buf;
         else
         {
-            printf("error reallocating buffer\n");
-            return 0;
+            fprintf(stderr, "[%s:%s:%d] error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
+            return NULL;
         }
     }
 
     buf[i] = '\0';
-    return (int) i;
+    return buf;
 }
