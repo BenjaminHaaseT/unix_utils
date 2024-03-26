@@ -1,0 +1,11 @@
+Program takes a search term and zero or more files to be searched
+Searches each file line by line for occurrences of the passed in term
+If a line contains the term the line is printed to the screen, otherwise it is not.
+If no term is specified, then we can match no lines are all lines
+If no file is specified, we should read from stdin
+
+1) Parse command line arguments
+    -We need to check that a search term has been entered, if not we can automatically exit.
+    -We need to decide at least one file has been entered, if not default to stdin
+    -If no command line arguments are entered we need to return an error message to the caller
+
