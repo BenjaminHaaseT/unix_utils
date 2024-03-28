@@ -4,12 +4,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 int process_file(char* fname);
-char* read_line(FILE* fp);
-char* rle_encode(char* line);
+char *read_line(FILE* fp);
+char *rle_encode(char* line);
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     // Check that at least one file has been passed to the program
     if (argc == 1)
@@ -27,11 +28,11 @@ int main(int argc, char** argv)
             exit(1);
         }
     }
-
+    printf("\n");
     return EXIT_SUCCESS;
 }
 
-int process_file(char* fname)
+int process_file(char *fname)
 {
     FILE* fp = fopen(fname, "r");
     if (!fp)
@@ -45,31 +46,20 @@ int process_file(char* fname)
 
     while ((line = read_line(fp)))
     {
-        //TODO: remove, for debugging only
-//        printf("%s", line);
-
-        char* rle_enc_line = NULL;
-        if ((rle_enc_line = rle_encode(line)))
-        {
-            printf("%s", rle_enc_line);
-            free(rle_enc_line);
-        }
-        else
-        {
-            free(line);
-            fprintf(stderr, "%s:%s:%d - error encoding line\n", __FILE__, __FUNCTION__, __LINE__);
-            return 1;
-        }
-
+        char* buf = rle_encode(line);
+        printf("%s", buf);
+        free(buf);
         free(line);
     }
 
     // ensure we have successfully finished reading the file i.e. we have not broken the loop due to errors
+    if (ferror(fp) || !feof(fp))
+        return 1;
 
     return 0;
 }
 
-char* read_line(FILE* fp)
+char *read_line(FILE* fp)
 {
     size_t buf_size = 64;
     size_t buf_idx = 0;
@@ -120,10 +110,10 @@ char* read_line(FILE* fp)
     return buf;
 }
 
-char* rle_encode(char* line)
+char *rle_encode(char *line)
 {
     size_t len = strlen(line);
-    size_t buf_size = 32;
+    size_t buf_size = 64;
     size_t buf_idx = 0;
     char* buf = malloc(buf_size);
 
@@ -137,44 +127,15 @@ char* rle_encode(char* line)
 
         // store the total count, of the current character at index
         int count = (int) (j - i);
-        size_t count_buf_size = 10;
-        size_t count_buf_idx = 0;
-//        printf("count - %d\n", count);
+        size_t count_bit_sz = sizeof(int) * CHAR_BIT;
 
-        // for reading the digits of count
-        char* count_buf = malloc(count_buf_size);
-
-        // Transform the count into a sequence of 1 byte digits, stored in count_buf
-        while (count)
+        for (int k = count_bit_sz - 1; k > -1; k--)
         {
-            char digit = ((char) (count % 10)) + '0';
-//            printf("%c\n", digit);
-            if (count_buf_idx == count_buf_size)
-            {
-                count_buf_size *= 2;
-                char* new_count_buf = realloc(count_buf, count_buf_size);
-                if (!new_count_buf)
-                {
-                    fprintf(stderr, "%s:%s:%d - error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
-                    return NULL;
-                }
-
-                count_buf = new_count_buf;
-            }
-
-            count_buf[count_buf_idx++] = digit;
-            count /= 10;
-        }
-
-        count_buf_idx--;
-
-        while (count_buf_idx)
-        {
-            // write digits in reverse order to the buffer
+            char c = '0' + ((count >> k) & 1);
             if (buf_idx == buf_size)
             {
                 buf_size *= 2;
-                char* new_buf = realloc(buf, buf_size);
+                char *new_buf = realloc(buf, buf_size);
                 if (!new_buf)
                 {
                     fprintf(stderr, "%s:%s:%d - error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
@@ -184,34 +145,19 @@ char* rle_encode(char* line)
                 buf = new_buf;
             }
 
-            buf[buf_idx++] = count_buf[count_buf_idx--];
+            buf[buf_idx++] = c;
         }
 
-        // write the last digit in count_buf
         if (buf_idx == buf_size)
         {
             buf_size *= 2;
-            char* new_buf = realloc(buf, buf_size);
+            char *new_buf = realloc(buf, buf_size);
             if (!new_buf)
             {
                 fprintf(stderr, "%s:%s:%d - error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
                 return NULL;
             }
-            buf = new_buf;
-        }
 
-        buf[buf_idx++] = count_buf[count_buf_idx];
-
-        // now attempt to write the current character at index i
-        if (buf_idx == buf_size)
-        {
-            buf_size *= 2;
-            char* new_buf = realloc(buf, buf_size);
-            if (!new_buf)
-            {
-                fprintf(stderr, "%s:%s:%d - error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
-                return NULL;
-            }
             buf = new_buf;
         }
 
@@ -219,16 +165,16 @@ char* rle_encode(char* line)
         i = j;
     }
 
-    // if we make it here we have successfully processed the line
-    char* temp_buf = realloc(buf, buf_idx + 1);
-    if (!temp_buf)
+    // Resize the buffer to new size
+    char *new_buf = realloc(buf, buf_idx + 1);
+    if (!new_buf)
     {
         fprintf(stderr, "%s:%s:%d - error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
         return NULL;
     }
-    buf = temp_buf;
-    buf[buf_idx] = '\0';
 
+    buf = new_buf;
+    buf[buf_idx] = '\0';
     return buf;
 }
 
