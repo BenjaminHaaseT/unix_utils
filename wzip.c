@@ -46,7 +46,7 @@ int process_file(char* fname)
     while ((line = read_line(fp)))
     {
         //TODO: remove, for debugging only
-        printf("%s", line);
+//        printf("%s", line);
 
         char* rle_enc_line = NULL;
         if ((rle_enc_line = rle_encode(line)))
@@ -65,7 +65,6 @@ int process_file(char* fname)
     }
 
     // ensure we have successfully finished reading the file i.e. we have not broken the loop due to errors
-
 
     return 0;
 }
@@ -140,13 +139,16 @@ char* rle_encode(char* line)
         int count = (int) (j - i);
         size_t count_buf_size = 10;
         size_t count_buf_idx = 0;
+//        printf("count - %d\n", count);
+
         // for reading the digits of count
         char* count_buf = malloc(count_buf_size);
 
         // Transform the count into a sequence of 1 byte digits, stored in count_buf
         while (count)
         {
-            char digit = (char) (count % 10);
+            char digit = ((char) (count % 10)) + '0';
+//            printf("%c\n", digit);
             if (count_buf_idx == count_buf_size)
             {
                 count_buf_size *= 2;
@@ -218,6 +220,15 @@ char* rle_encode(char* line)
     }
 
     // if we make it here we have successfully processed the line
+    char* temp_buf = realloc(buf, buf_idx + 1);
+    if (!temp_buf)
+    {
+        fprintf(stderr, "%s:%s:%d - error reallocating buffer\n", __FILE__, __FUNCTION__, __LINE__);
+        return NULL;
+    }
+    buf = temp_buf;
+    buf[buf_idx] = '\0';
+
     return buf;
 }
 
