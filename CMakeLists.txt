@@ -6,4 +6,5 @@ set(CMAKE_C_STANDARD 23)
 add_executable(unix_utils main.c
         wcat.c
         wgrep.c
-wzip.c)
+wzip.c
+        wunzip.c)
